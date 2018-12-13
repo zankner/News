@@ -3,58 +3,67 @@ import keras
 from keras.models import Sequential
 from keras.layers import Dense
 from keras.layers import Dropout
+from keras.layers import Conv1D
+from keras.layers import MaxPooling1D
+from keras.layers import Flatten
 from keras.layers import LSTM
 from keras.callbacks import ModelCheckpoint
 from keras.callbacks import TensorBoard
+from sklearn.model_selection import train_test_split
 import numpy as np
 import pandas as pd
 
 
 class model(object):
-    def __init__(self, train_length,lstm_size,dropout):
-        self.X = np.load('input.npy')
-        self.Y = np.load('output.npy')
-        print(self.Y.shape)
-    #    df = pd.read_csv('data.csv')
-    #    self.Y = df.iloc[:,1]
-        self.train_length = train_length
-        self.lstm_size = lstm_size
-        self.dropout = dropout
+    def __init__(self):
+        self.X = np.load('/Users/zackankner/Desktop/Github/News/input.npy')
+        self.Y = np.load('/Users/zackankner/Desktop/Github/News/output.npy')
+        self.batch_size = 300
+        self.epochs = 200
+        self.train_X, self.val_X, self.train_Y, self.val_Y = train_test_split(self.X, self.Y, test_size = .5)
+        print(self.train_X.shape, 'print')
+        #self.X = np.random.rand()
+        #self.train_X = self.X[:75]
+        #self.val_X = self.X[:-225]
+        #self.train_Y = self.Y[:75]
+        #self.val_Y = self.Y[:-225]
 
-    def convert_output(self):
-        counter = 0
-        dict = {}
-        for y in set(self.Y):
-            dict.update({y:counter})
-            counter += 1
-        counter = 0
-        for y in self.Y:
-            self.Y[counter] = dict.get(y)
-            counter += 1
-
-        print(self.Y)
-
-
-    def model_arhitecture(self):
-        len = np.size(self.X,0)
-        X = np.reshape(self.X, (len, self.train_length, 1))
-        print('----------- Running Lstm ------------')
+    def run(self):
         model = Sequential()
-        model.add(LSTM(self.lstm_size, return_sequences = True, input_shape=(X.shape[1], X.shape[2])))
-        model.add(Dropout(self.dropout))
-        model.add(LSTM(self.lstm_size))
-        model.add(Dropout(self.dropout))
 
-        model.add(Dense(self.Y.shape[1], activation='softmax'))
-        model.compile(loss='categorical_crossentropy', optimizer='adam')
-        tensorboard = TensorBoard(log_dir="logs/{}", histogram_freq=0, batch_size=32, write_graph=False, write_grads=False, write_images=False, embeddings_freq=0, embeddings_layer_names=None, embeddings_metadata=None)
+        model.add(Dense(100, input_dim=17469, activation = 'relu'))
+        model.add(Dropout(0.2))
+        model.add(Dense(50, activation = 'relu'))
+        model.add(Dropout(0.5))
+        model.add(Dense(20, activation = 'relu'))
+        model.add(Dense(3, activation = 'sigmoid'))
+        model.compile(loss='mean_squared_error', optimizer='RMSprop', metrics = ['accuracy'])
+        model.summary()
 
-        base = "models/"
-        filepath = base + "model.hdf5"
+        tensorboard = TensorBoard(log_dir="logs/{}", histogram_freq=0, batch_size=self.batch_size, write_graph=False, write_grads=False, write_images=False, embeddings_freq=0, embeddings_layer_names=None, embeddings_metadata=None)
+        filepath = 'checkpoints/model.h5'
+        checkpoint = ModelCheckpoint(filepath, monitor='loss', verbose=2, save_best_only=True, mode='min')
+        model.fit(self.train_X, self.train_Y, epochs=self.epochs, batch_size=self.batch_size, callbacks=[checkpoint, tensorboard], validation_data=(self.val_X, self.val_Y))
 
-        checkpoint = ModelCheckpoint(filepath, monitor='loss', verbose=1, save_best_only=False, mode='min')
-        model.fit(X, self.Y, epochs=1000, batch_size=128, callbacks=[checkpoint, tensorboard])
+    def report(self, text):
+        model = Sequential()
 
-model = model(20, 1, 0.2)
-#smodel.convert_output()
-model.model_arhitecture()
+        model.add(Dense(100, input_dim=17469, activation = 'relu'))
+        model.add(Dropout(0.2))
+        model.add(Dense(50, activation = 'relu'))
+        model.add(Dropout(0.5))
+        model.add(Dense(20, activation = 'relu'))
+        model.add(Dense(3, activation = 'sigmoid'))
+
+        model.load_weights('../checkpoints/model.h5')
+
+        model.compile(loss='mean_squared_error', optimizer='RMSprop')
+
+        prediction = model.predict(text)
+        print(np.argmax(prediction))
+        return np.argmax(prediction), prediction
+'''
+when training un copy
+model = model()
+model.run()
+'''
